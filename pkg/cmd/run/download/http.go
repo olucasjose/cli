@@ -2,6 +2,7 @@ package download
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,11 +25,11 @@ func (p *apiPlatform) List(runID string) ([]shared.Artifact, error) {
 	return shared.ListArtifacts(p.client, p.repo, runID)
 }
 
-func (p *apiPlatform) Download(url safeurl.SafeURL, dir safepaths.Absolute) error {
-	return downloadArtifact(p.client, url, dir)
+func (p *apiPlatform) Download(url safeurl.SafeURL, dir safepaths.Absolute, artifactName string) error {
+	return downloadArtifact(p.client, url, dir, artifactName)
 }
 
-func downloadArtifact(httpClient *http.Client, url safeurl.SafeURL, destDir safepaths.Absolute) error {
+func downloadArtifact(httpClient *http.Client, url safeurl.SafeURL, destDir safepaths.Absolute, artifactName string) error {
 	// TODO(api-client-rollout)
 	// This has been deferred from moving to api.Client due to streaming the artifact ZIP response body to disk instead of decoding JSON.
 	req, err := http.NewRequest("GET", url.String(), nil)
@@ -64,6 +65,27 @@ func downloadArtifact(httpClient *http.Client, url safeurl.SafeURL, destDir safe
 
 	zipfile, err := zip.NewReader(tmpfile, size)
 	if err != nil {
+		if errors.Is(err, zip.ErrFormat) {
+			if _, seekErr := tmpfile.Seek(0, 0); seekErr != nil {
+				return fmt.Errorf("error seeking temporary file: %w", seekErr)
+			}
+			if mkdirErr := os.MkdirAll(destDir.String(), 0755); mkdirErr != nil {
+				return fmt.Errorf("error creating destination directory: %w", mkdirErr)
+			}
+			destPath, joinErr := destDir.Join(artifactName)
+			if joinErr != nil {
+				return fmt.Errorf("error building destination path: %w", joinErr)
+			}
+			out, createErr := os.Create(destPath.String())
+			if createErr != nil {
+				return fmt.Errorf("error creating destination file: %w", createErr)
+			}
+			defer out.Close()
+			if _, copyErr := io.Copy(out, tmpfile); copyErr != nil {
+				return fmt.Errorf("error writing destination file: %w", copyErr)
+			}
+			return nil
+		}
 		return fmt.Errorf("error extracting zip archive: %w", err)
 	}
 	if err := ghzip.ExtractZip(zipfile, destDir); err != nil {

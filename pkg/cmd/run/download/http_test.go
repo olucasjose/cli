@@ -73,7 +73,7 @@ func Test_Download(t *testing.T) {
 	api := &apiPlatform{
 		client: &http.Client{Transport: reg},
 	}
-	require.NoError(t, api.Download(safeurl.NewImmutableSafeURL("https://api.github.com/repos/OWNER/REPO/actions/artifacts/12345/zip"), destDir))
+	require.NoError(t, api.Download(safeurl.NewImmutableSafeURL("https://api.github.com/repos/OWNER/REPO/actions/artifacts/12345/zip"), destDir, "myproject"))
 
 	var paths []string
 	parentPrefix := tmpDir + string(filepath.Separator)

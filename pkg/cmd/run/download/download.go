@@ -29,7 +29,7 @@ type DownloadOptions struct {
 
 type platform interface {
 	List(runID string) ([]shared.Artifact, error)
-	Download(url safeurl.SafeURL, dir safepaths.Absolute) error
+	Download(url safeurl.SafeURL, dir safepaths.Absolute, artifactName string) error
 }
 
 type iprompter interface {
@@ -188,7 +188,7 @@ func runDownload(opts *DownloadOptions) error {
 			}
 		}
 
-		err := opts.Platform.Download(safeurl.NewImmutableSafeURL(a.DownloadURL), destDir)
+		err := opts.Platform.Download(safeurl.NewImmutableSafeURL(a.DownloadURL), destDir, a.Name)
 		if err != nil {
 			return fmt.Errorf("error downloading %s: %w", a.Name, err)
 		}
