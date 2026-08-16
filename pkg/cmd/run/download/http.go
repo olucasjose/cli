@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/cli/cli/v2/api"
 	"github.com/cli/cli/v2/internal/ghrepo"
@@ -63,8 +64,10 @@ func downloadArtifact(httpClient *http.Client, url safeurl.SafeURL, destDir safe
 		return fmt.Errorf("error writing zip archive: %w", err)
 	}
 
-	zipfile, err := zip.NewReader(tmpfile, size)
-	if err != nil {
+	if strings.HasSuffix(artifactName, ".zip") {
+		zipfile, err := zip.NewReader(tmpfile, size)
+		if err != nil {
+
 		if errors.Is(err, zip.ErrFormat) {
 			if _, seekErr := tmpfile.Seek(0, 0); seekErr != nil {
 				return fmt.Errorf("error seeking temporary file: %w", seekErr)
@@ -87,9 +90,29 @@ func downloadArtifact(httpClient *http.Client, url safeurl.SafeURL, destDir safe
 			return nil
 		}
 		return fmt.Errorf("error extracting zip archive: %w", err)
-	}
-	if err := ghzip.ExtractZip(zipfile, destDir); err != nil {
-		return fmt.Errorf("error extracting zip archive: %w", err)
+		}
+		if err := ghzip.ExtractZip(zipfile, destDir); err != nil {
+			return fmt.Errorf("error extracting zip archive: %w", err)
+		}
+	} else {
+		if _, seekErr := tmpfile.Seek(0, 0); seekErr != nil {
+			return fmt.Errorf("error seeking temporary file: %w", seekErr)
+		}
+		if mkdirErr := os.MkdirAll(destDir.String(), 0755); mkdirErr != nil {
+			return fmt.Errorf("error creating destination directory: %w", mkdirErr)
+		}
+		destPath, joinErr := destDir.Join(artifactName)
+		if joinErr != nil {
+			return fmt.Errorf("error building destination path: %w", joinErr)
+		}
+		out, createErr := os.Create(destPath.String())
+		if createErr != nil {
+			return fmt.Errorf("error creating destination file: %w", createErr)
+		}
+		defer out.Close()
+		if _, copyErr := io.Copy(out, tmpfile); copyErr != nil {
+			return fmt.Errorf("error writing destination file: %w", copyErr)
+		}
 	}
 
 	return nil
