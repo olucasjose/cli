@@ -1,0 +1,27 @@
+name: Build Ubuntu Artifact
+
+on:
+  push:
+    branches:
+      - is-not-zip
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Build executable
+        run: make
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gh-ubuntu
+          path: bin/gh
