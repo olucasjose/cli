@@ -113,9 +113,9 @@ func (m *Manager) Dispatch(args []string, stdin io.Reader, stdout, stderr io.Wri
 
 	var externalCmd *exec.Cmd
 
-	if ext.IsBinary() || runtime.GOOS != "windows" {
+	if ext.IsBinary() {
 		externalCmd = m.newCommand(exe, forwardArgs...)
-	} else if runtime.GOOS == "windows" {
+	} else {
 		// Dispatch all extension calls through the `sh` interpreter to support executable files with a
 		// shebang line on Windows.
 		shExe, err := m.findSh()
